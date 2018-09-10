@@ -63,7 +63,10 @@ public class Listener implements ConnectionDistributor {
             // 开始进行selector的监听
 
             // 水平触发? 边缘触发?
-            while (selector.select() == 0) {
+            while (true) {
+                if (selector.select() == 0) {
+                    continue;
+                }
                 Set<SelectionKey> selectionKeySet = selector.selectedKeys();
 
                 // 遍历每一个selectionKey
@@ -72,7 +75,7 @@ public class Listener implements ConnectionDistributor {
                     if (key.isAcceptable()) {
 
                         distributeAccept((ServerSocketChannel) key.channel());
-                        
+
                     } else if (key.isReadable()) {
                         /**
                          * unix网络编程, IO模型中讲到的一下几种"套接字准备好写的状态"
@@ -91,6 +94,8 @@ public class Listener implements ConnectionDistributor {
                          * 2. 写半部关闭
                          * 3. 有错误, 返回-1
                          */
+
+
                     }
                 }
             }
