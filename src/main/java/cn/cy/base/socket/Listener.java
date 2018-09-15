@@ -13,6 +13,7 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.SelectorProvider;
+import java.nio.charset.Charset;
 import java.util.Set;
 import java.util.logging.Logger;
 
@@ -52,7 +53,7 @@ public class Listener implements ConnectionDistributor {
             // 对于serverSocketChannel, 感兴趣的是accept事件
             serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
 
-            readBuffer = ByteBuffer.allocate(2048).asReadOnlyBuffer();
+            readBuffer = ByteBuffer.allocate(2048);
         } catch (AlreadyBoundException abe) {
 
         } catch (ClosedChannelException cce) {
@@ -139,9 +140,17 @@ public class Listener implements ConnectionDistributor {
     @Override
     public void distributeRead(SocketChannel channel) {
         try {
+            //之前因为是readOnly，所以无法将channel数据写入，报非法参数异常
             int cnt = channel.read(readBuffer);
-            // todo 判断cnt的情况
-            System.out.println(String.valueOf(readBuffer.asCharBuffer().array()));
+            // 客户端关闭连接
+            if(cnt < 0) {
+                channel.keyFor(this.selector).cancel();
+                channel.close();
+                return;
+            }
+            //之前会报UnsupportOperation异常
+            readBuffer.flip();
+            System.out.println(Charset.forName("UTF-8").decode(readBuffer).toString());
         } catch (IOException e) {
             e.printStackTrace();
         }
