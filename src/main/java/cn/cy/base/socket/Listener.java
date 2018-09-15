@@ -5,7 +5,6 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
 import java.nio.channels.AlreadyBoundException;
 import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.ClosedChannelException;
@@ -81,12 +80,12 @@ public class Listener implements ConnectionDistributor {
                 for (SelectionKey key : selectionKeySet) {
                     // 监听到连接, 根据策略分发连接
                     if (key.isAcceptable()) {
-                        // 注册读写事件
-                        key.channel().register(this.selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+                        logger.info("server can accept");
                         // 分发事件
-                        distributeAccept((ServerSocketChannel) key.channel());
+                        distributeAccept((ServerSocketChannel) key.channel(), selector);
 
                     } else if (key.isReadable()) {
+                        logger.info("server can read");
                         /**
                          * unix网络编程, IO模型中讲到的一下几种"套接字准备好写的状态"
                          * 1. 套接字的 接受缓冲区 的 字节数 > 套接字接收缓冲区低水位标记的当前大小, 返回的字节数 > 0
@@ -98,6 +97,7 @@ public class Listener implements ConnectionDistributor {
                         distributeRead(clientChannel);
 
                     } else if (key.isWritable()) {
+                        logger.info("server can write on {}");
                         /**
                          * 准备好写的情况
                          * 1. 发送缓冲区的可用空间字节数 >= 发送缓冲区低水位标记大小
@@ -109,19 +109,27 @@ public class Listener implements ConnectionDistributor {
             }
 
         } catch (ClosedByInterruptException cie) {
-
+            cie.printStackTrace();
         } catch (ClosedChannelException cce) {
-
+            cce.printStackTrace();
         } catch (Exception e) {
-
+            e.printStackTrace();
         }
     }
 
     @Override
-    public void distributeAccept(ServerSocketChannel serverSocketChannel) {
+    public void distributeAccept(ServerSocketChannel serverSocketChannel, Selector selector) {
         try {
-            SocketChannel remoteChannel = serverSocketChannel.accept();
             logger.info("conntected");
+            // 这里是非阻塞的accept
+            while (true) {
+                SocketChannel remoteChannel = serverSocketChannel.accept();
+                if (remoteChannel != null) {
+                    remoteChannel.configureBlocking(false);
+                    remoteChannel.register(selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+                    break;
+                }
+            }
 
         } catch (IOException e) {
             e.printStackTrace();
