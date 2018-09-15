@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 import java.nio.channels.AlreadyBoundException;
 import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.ClosedChannelException;
@@ -33,12 +35,16 @@ public class Listener implements ConnectionDistributor {
 
     private static Logger logger = Logger.getLogger(Listener.class.getName());
 
+    private ByteBuffer readBuffer;
+
     /**
      * 初始化selector
      */
     public void init() throws UnknownHostException {
         try {
+
             serverSocketChannel = selectorProvider.openServerSocketChannel();
+            serverSocketChannel.configureBlocking(false);
             // 这一步帮忙把bind和listen都做了
             serverSocketChannel = serverSocketChannel.bind(new InetSocketAddress(InetAddress.getLocalHost(), 8100));
 
@@ -46,6 +52,8 @@ public class Listener implements ConnectionDistributor {
 
             // 对于serverSocketChannel, 感兴趣的是accept事件
             serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
+
+            readBuffer = ByteBuffer.allocate(2048).asReadOnlyBuffer();
         } catch (AlreadyBoundException abe) {
 
         } catch (ClosedChannelException cce) {
@@ -73,7 +81,9 @@ public class Listener implements ConnectionDistributor {
                 for (SelectionKey key : selectionKeySet) {
                     // 监听到连接, 根据策略分发连接
                     if (key.isAcceptable()) {
-
+                        // 注册读写事件
+                        key.channel().register(this.selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+                        // 分发事件
                         distributeAccept((ServerSocketChannel) key.channel());
 
                     } else if (key.isReadable()) {
@@ -94,8 +104,6 @@ public class Listener implements ConnectionDistributor {
                          * 2. 写半部关闭
                          * 3. 有错误, 返回-1
                          */
-
-
                     }
                 }
             }
@@ -111,11 +119,30 @@ public class Listener implements ConnectionDistributor {
 
     @Override
     public void distributeAccept(ServerSocketChannel serverSocketChannel) {
+        try {
+            SocketChannel remoteChannel = serverSocketChannel.accept();
+            logger.info("conntected");
 
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
     public void distributeRead(SocketChannel channel) {
+        try {
+            int cnt = channel.read(readBuffer);
+            // todo 判断cnt的情况
+            System.out.println(String.valueOf(readBuffer.asCharBuffer().array()));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
+    public static void main(String[] args) throws UnknownHostException {
+        Listener listener = new Listener();
+        listener.init();
+
+        listener.accept();
     }
 }
