@@ -15,7 +15,9 @@ import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.SelectorProvider;
 import java.nio.charset.Charset;
 import java.util.Set;
-import java.util.logging.Logger;
+
+import org.apache.logging.log4j.core.Logger;
+import org.apache.logging.log4j.core.LoggerContext;
 
 import cn.cy.base.config.ServerConfig;
 import cn.cy.base.constraint.ConnectionDistributor;
@@ -33,7 +35,7 @@ public class Listener implements ConnectionDistributor {
 
     private ServerSocketChannel serverSocketChannel;
 
-    private static Logger logger = Logger.getLogger(Listener.class.getName());
+    private static Logger logger = LoggerContext.getContext().getLogger(Listener.class.getName());
 
     private ByteBuffer readBuffer;
 
@@ -79,14 +81,15 @@ public class Listener implements ConnectionDistributor {
 
                 // 遍历每一个selectionKey
                 for (SelectionKey key : selectionKeySet) {
+                    // 首先remove掉
+                    selectionKeySet.remove(key);
                     // 监听到连接, 根据策略分发连接
                     if (key.isAcceptable()) {
-                        logger.info("server can accept");
-                        // 分发事件
+                        logger.info(" server can accept , {}", key.channel().toString());
+                        // 异步分发事件
                         distributeAccept((ServerSocketChannel) key.channel(), selector);
-
                     } else if (key.isReadable()) {
-                        logger.info("server can read");
+                        logger.info("server can read {}", key.channel().toString());
                         /**
                          * unix网络编程, IO模型中讲到的一下几种"套接字准备好写的状态"
                          * 1. 套接字的 接受缓冲区 的 字节数 > 套接字接收缓冲区低水位标记的当前大小, 返回的字节数 > 0
@@ -97,15 +100,8 @@ public class Listener implements ConnectionDistributor {
 
                         distributeRead(clientChannel);
 
-                    } else if (key.isWritable()) {
-                        logger.info("server can write on {}");
-                        /**
-                         * 准备好写的情况
-                         * 1. 发送缓冲区的可用空间字节数 >= 发送缓冲区低水位标记大小
-                         * 2. 写半部关闭
-                         * 3. 有错误, 返回-1
-                         */
                     }
+                    // 最好的做法应该是, 当且仅当准备写的时候, 才开始注册写事件
                 }
             }
 
@@ -120,20 +116,32 @@ public class Listener implements ConnectionDistributor {
 
     @Override
     public void distributeAccept(ServerSocketChannel serverSocketChannel, Selector selector) {
-        try {
-            logger.info("conntected");
-            // 这里是非阻塞的accept
-            while (true) {
-                SocketChannel remoteChannel = serverSocketChannel.accept();
-                if (remoteChannel != null) {
-                    remoteChannel.configureBlocking(false);
-                    remoteChannel.register(selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE);
-                    break;
-                }
+        logger.info("{}", selector.toString());
+        // 这里是非阻塞的accept
+        while (true) {
+            SocketChannel remoteChannel = null;
+            try {
+                remoteChannel = serverSocketChannel.accept();
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-
-        } catch (IOException e) {
-            e.printStackTrace();
+            if (remoteChannel != null) {
+                try {
+                    remoteChannel.configureBlocking(false);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                try {
+                    logger.info("{}", selector.toString());
+                    remoteChannel.register(selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+                    logger.info(" selector key num: {}", selector.keys().size());
+                } catch (ClosedChannelException e) {
+                    logger.error(e.getMessage());
+                } catch (Exception e) {
+                    logger.error(e.getMessage());
+                }
+                break;
+            }
         }
     }
 
@@ -143,7 +151,8 @@ public class Listener implements ConnectionDistributor {
             //之前因为是readOnly，所以无法将channel数据写入，报非法参数异常
             int cnt = channel.read(readBuffer);
             // 客户端关闭连接
-            if(cnt < 0) {
+            // 这里是 <=0 参照上面读部分的2, 3条
+            if (cnt <= 0) {
                 channel.keyFor(this.selector).cancel();
                 channel.close();
                 return;

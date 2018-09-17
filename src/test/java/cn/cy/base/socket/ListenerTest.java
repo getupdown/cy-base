@@ -5,7 +5,6 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
@@ -19,7 +18,7 @@ public class ListenerTest {
     private static Logger logger = Logger.getLogger(Listener.class.getName());
 
     @Before
-    public void startClient() throws IOException {
+    public void startClient() throws IOException, InterruptedException {
 
         SocketAddress remote = new InetSocketAddress(InetAddress.getLocalHost(), 8100);
 
@@ -44,7 +43,6 @@ public class ListenerTest {
                     SocketChannel remoteChannel = (SocketChannel) selectionKey.channel();
 
                     remoteChannel.write(ByteBuffer.wrap(input.getBytes()));
-
                 } else if (selectionKey.isConnectable()) {
                     logger.info("asdf");
                 } else if (selectionKey.isReadable()) {

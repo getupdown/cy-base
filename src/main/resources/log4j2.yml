@@ -15,7 +15,7 @@ Configuration:
     Console:
       name: STDOUT
       PatternLayout:
-        Pattern: "%d{DATE} - %p - %t - %M%m%n"
+        Pattern: "%d{DATE} - %p - %t - %M %m %n "
 
     RollingRandomAccessFile:
       - name: daily
