@@ -13,7 +13,6 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.SelectorProvider;
-import java.nio.charset.Charset;
 import java.util.Set;
 
 import org.apache.logging.log4j.core.Logger;
@@ -21,6 +20,8 @@ import org.apache.logging.log4j.core.LoggerContext;
 
 import cn.cy.base.config.ServerConfig;
 import cn.cy.base.constraint.ConnectionDistributor;
+import cn.cy.base.context.SocketContext;
+import cn.cy.base.handler.EchoHandler;
 
 /**
  * 监听请求的中心 , nio
@@ -66,9 +67,9 @@ public class Listener implements ConnectionDistributor {
     }
 
     /**
-     * accept函数, 无限循环, 接受连接
+     * eventLoop函数, 无限循环, 接受连接
      */
-    public void accept() {
+    public void eventLoop() {
         try {
             // 开始进行selector的监听
 
@@ -86,8 +87,7 @@ public class Listener implements ConnectionDistributor {
                     // 监听到连接, 根据策略分发连接
                     if (key.isAcceptable()) {
                         logger.info(" server can accept , {}", key.channel().toString());
-                        // 异步分发事件
-                        distributeAccept((ServerSocketChannel) key.channel(), selector);
+                        distributeAccept(key);
                     } else if (key.isReadable()) {
                         logger.info("server can read {}", key.channel().toString());
                         /**
@@ -96,10 +96,7 @@ public class Listener implements ConnectionDistributor {
                          * 2. 读半部关闭, 字节数直接返回0
                          * 3. 套接字错误待处理, 返回 -1
                          */
-                        SocketChannel clientChannel = (SocketChannel) key.channel();
-
-                        distributeRead(clientChannel);
-
+                        distributeRead(key);
                     }
                     // 最好的做法应该是, 当且仅当准备写的时候, 才开始注册写事件
                 }
@@ -115,8 +112,8 @@ public class Listener implements ConnectionDistributor {
     }
 
     @Override
-    public void distributeAccept(ServerSocketChannel serverSocketChannel, Selector selector) {
-        logger.info("{}", selector.toString());
+    public void distributeAccept(SelectionKey selectionKey) {
+        logger.info("{}", selectionKey.selector().toString());
         // 这里是非阻塞的accept
         while (true) {
             SocketChannel remoteChannel = null;
@@ -132,9 +129,27 @@ public class Listener implements ConnectionDistributor {
                     e.printStackTrace();
                 }
                 try {
-                    logger.info("{}", selector.toString());
-                    remoteChannel.register(selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE);
-                    logger.info(" selector key num: {}", selector.keys().size());
+                    // 注意, 注册和selector要在同一个线程里做
+                    // echo Handler
+                    SocketContext socketContext = SocketContext.buildSocketContext(selectionKey, new EchoHandler(),
+                            remoteChannel);
+
+                    /**
+                     * 关于事件分发
+                     * 貌似通常做法是, 利用selectionKey的attach方法，来附带一个"带外数据"
+                     * 然后每次获取事件之后, 通过attach变量访问到当前连接的上下文
+                     * 一个selectionKey只能attach一个东西
+                     *
+                     * 这个attach在调用的时候,要注意,别attach错selectionKey
+                     * 之前踩了一个坑, 就是一直attach到那个专门用来accept的selectionKey上去
+                     * 这里nio给我们提供了一个register方法的重载, 在这个过程中就可以把内容attach上去
+                     * 可以说是非常贴心的
+                     *
+                     * ps: 不过里面的findKey方法的时间复杂度居然是O(n)的。。。。
+                     */
+                    // 在这里attach
+                    remoteChannel.register(selectionKey.selector(), SelectionKey.OP_READ, socketContext);
+                    logger.info(" selector key num: {}", selectionKey.selector().keys().size());
                 } catch (ClosedChannelException e) {
                     logger.error(e.getMessage());
                 } catch (Exception e) {
@@ -146,29 +161,16 @@ public class Listener implements ConnectionDistributor {
     }
 
     @Override
-    public void distributeRead(SocketChannel channel) {
-        try {
-            //之前因为是readOnly，所以无法将channel数据写入，报非法参数异常
-            int cnt = channel.read(readBuffer);
-            // 客户端关闭连接
-            // 这里是 <=0 参照上面读部分的2, 3条
-            if (cnt <= 0) {
-                channel.keyFor(this.selector).cancel();
-                channel.close();
-                return;
-            }
-            //之前会报UnsupportOperation异常
-            readBuffer.flip();
-            System.out.println(Charset.forName("UTF-8").decode(readBuffer).toString());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    public void distributeRead(SelectionKey selectionKey) {
+        SocketContext socketContext = (SocketContext) selectionKey.attachment();
+
+        socketContext.fireReadEvent();
     }
 
     public static void main(String[] args) throws UnknownHostException {
         Listener listener = new Listener();
         listener.init();
 
-        listener.accept();
+        listener.eventLoop();
     }
 }
