@@ -8,16 +8,18 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
-import java.util.logging.Logger;
+import java.util.Scanner;
+import java.util.concurrent.CountDownLatch;
 
+import org.apache.logging.log4j.core.Logger;
+import org.apache.logging.log4j.core.LoggerContext;
 import org.junit.Before;
 import org.junit.Test;
 
 public class ListenerTest {
 
-    private static Logger logger = Logger.getLogger(Listener.class.getName());
+    private Logger logger = LoggerContext.getContext().getLogger("test");
 
-    @Before
     public void startClient() throws IOException, InterruptedException {
 
         SocketAddress remote = new InetSocketAddress(InetAddress.getLocalHost(), 8100);
@@ -37,12 +39,15 @@ public class ListenerTest {
             for (SelectionKey selectionKey : selector.selectedKeys()) {
 
                 if (selectionKey.isWritable()) {
-                    logger.info("client can write");
                     String input = "motherFucker";
 
                     SocketChannel remoteChannel = (SocketChannel) selectionKey.channel();
-
-                    remoteChannel.write(ByteBuffer.wrap(input.getBytes()));
+                    try {
+                        remoteChannel.write(ByteBuffer.wrap(input.getBytes()));
+                        logger.info("client has been written, local port is : {}", remoteChannel.socket().getLocalPort());
+                    } catch (Exception e) {
+                        logger.warn("port {} send failed! ", remoteChannel.socket().getLocalPort());
+                    }
                 } else if (selectionKey.isConnectable()) {
                     logger.info("asdf");
                 } else if (selectionKey.isReadable()) {
@@ -53,8 +58,22 @@ public class ListenerTest {
     }
 
     @Test
-    public void work() {
+    public void work() throws IOException, InterruptedException {
+        CountDownLatch countDownLatch = new CountDownLatch(1000);
 
+        for (int i = 0;i < 1; i ++) {
+            new Thread(() -> {
+                try {
+                    startClient();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }).start();
+        }
+
+        countDownLatch.await();
     }
 
 }

@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
-import java.nio.ByteBuffer;
 import java.nio.channels.AlreadyBoundException;
 import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.ClosedChannelException;
@@ -13,6 +12,7 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.SelectorProvider;
+import java.util.Iterator;
 import java.util.Set;
 
 import org.apache.logging.log4j.core.Logger;
@@ -38,7 +38,13 @@ public class Listener implements ConnectionDistributor {
 
     private static Logger logger = LoggerContext.getContext().getLogger(Listener.class.getName());
 
-    private ByteBuffer readBuffer;
+    /**
+     * 维护几个cancelledKeys有关的信息
+     * netty 里面会每256次cancel动作之后，都会立刻进行一次select操作.
+     * 主要原因在于，select操作会把cancelledKeys里占用的资源回收
+     */
+
+    private int cancelKeyNum = 0;
 
     /**
      * 初始化selector
@@ -56,13 +62,12 @@ public class Listener implements ConnectionDistributor {
             // 对于serverSocketChannel, 感兴趣的是accept事件
             serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
 
-            readBuffer = ByteBuffer.allocate(2048);
         } catch (AlreadyBoundException abe) {
-
+            abe.printStackTrace();
         } catch (ClosedChannelException cce) {
-
+            cce.printStackTrace();
         } catch (IOException e) {
-
+            e.printStackTrace();
         }
     }
 
@@ -75,30 +80,41 @@ public class Listener implements ConnectionDistributor {
 
             // 水平触发? 边缘触发?
             while (true) {
-                if (selector.select() == 0) {
-                    continue;
-                }
+                selector.select();
                 Set<SelectionKey> selectionKeySet = selector.selectedKeys();
 
-                // 遍历每一个selectionKey
-                for (SelectionKey key : selectionKeySet) {
-                    // 首先remove掉
-                    selectionKeySet.remove(key);
+                /*
+                  显式使用iterator
+                  如果使用以前的方式遍历过程中, 如果使用remove方法，会报ConcurrentModifiedException
+                  https://stackoverflow.com/questions/26494197/java-util-concurrentmodificationexception-when-removing-elements-from-a-hashmap
+                 */
+                Iterator<SelectionKey> iterator = selectionKeySet.iterator();
+
+                while (iterator.hasNext()) {
+                    SelectionKey key = iterator.next();
+                    iterator.remove();
+
                     // 监听到连接, 根据策略分发连接
                     if (key.isAcceptable()) {
                         logger.info(" server can accept , {}", key.channel().toString());
                         distributeAccept(key);
                     } else if (key.isReadable()) {
                         logger.info("server can read {}", key.channel().toString());
-                        /**
-                         * unix网络编程, IO模型中讲到的一下几种"套接字准备好写的状态"
-                         * 1. 套接字的 接受缓冲区 的 字节数 > 套接字接收缓冲区低水位标记的当前大小, 返回的字节数 > 0
-                         * 2. 读半部关闭, 字节数直接返回0
-                         * 3. 套接字错误待处理, 返回 -1
+                        /*
+                          unix网络编程, IO模型中讲到的一下几种"套接字准备好写的状态"
+                          1. 套接字的 接受缓冲区 的 字节数 > 套接字接收缓冲区低水位标记的当前大小, 返回的字节数 > 0
+                          2. 读半部关闭, 字节数直接返回0
+                          3. 套接字错误待处理, 返回 -1
                          */
                         distributeRead(key);
+                    } else if (key.isWritable()) {
+                        /*
+                          最好的做法应该是, 当且仅当准备写的时候, 才开始注册写事件
+                          netty中关于写的做法，可以参考如下链接:
+                          https://blog.csdn.net/yangguosb/article/details/80193196
+                          http://xiaoz5919.iteye.com/blog/1905177
+                         */
                     }
-                    // 最好的做法应该是, 当且仅当准备写的时候, 才开始注册写事件
                 }
             }
 
@@ -149,7 +165,7 @@ public class Listener implements ConnectionDistributor {
                      */
                     // 在这里attach
                     remoteChannel.register(selectionKey.selector(), SelectionKey.OP_READ, socketContext);
-                    logger.info(" selector key num: {}", selectionKey.selector().keys().size());
+                    logger.info(" after register, selector key num: {}", selectionKey.selector().keys().size());
                 } catch (ClosedChannelException e) {
                     logger.error(e.getMessage());
                 } catch (Exception e) {
@@ -170,7 +186,6 @@ public class Listener implements ConnectionDistributor {
     public static void main(String[] args) throws UnknownHostException {
         Listener listener = new Listener();
         listener.init();
-
         listener.eventLoop();
     }
 }

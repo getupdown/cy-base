@@ -29,6 +29,7 @@ public class EchoHandler implements EventHandler {
             int cnt = socketChannel.read(readBuffer);
             // 客户端关闭连接
             // 这里是 <=0 参照上面读部分的2, 3条
+            logger.info("{} bytes read into the buffer", cnt);
             if (cnt <= 0) {
                 // 触发取消事件
                 onCancel(context);
@@ -49,6 +50,11 @@ public class EchoHandler implements EventHandler {
 
     @Override
     public void onCancel(SocketContext context) {
-
+        logger.debug("{} deregister from selector ", context.getSocketChannel().toString());
+        try {
+            context.getSocketChannel().close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
