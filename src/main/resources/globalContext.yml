@@ -1,0 +1,3 @@
+corePoolSize: 0
+maximumPoolSize: 100
+keepAliveTime: 60
