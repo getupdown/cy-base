@@ -96,7 +96,7 @@
                     <archive>
                         <manifest>
                             <mainClass>cn.cy.base.socket.Listener</mainClass>
-                            <addCLasspath>true</addCLasspath>
+                            <addClasspath>true</addClasspath>
                         </manifest>
                     </archive>
                     <descriptorRefs>
