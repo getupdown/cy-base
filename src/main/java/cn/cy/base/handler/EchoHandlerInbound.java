@@ -13,9 +13,9 @@ import cn.cy.base.context.SocketContext;
 /**
  * 写一个简单的echo服务器
  */
-public class EchoHandler implements EventHandler {
+public class EchoHandlerInbound implements InboundEventHandler {
 
-    private static Logger logger = LoggerContext.getContext().getLogger(EchoHandler.class.getName());
+    private static Logger logger = LoggerContext.getContext().getLogger(EchoHandlerInbound.class.getName());
 
     @Override
     public void onRead(SocketContext context) {
@@ -41,11 +41,6 @@ public class EchoHandler implements EventHandler {
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    @Override
-    public void send(SocketContext context) {
-
     }
 
     @Override

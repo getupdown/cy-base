@@ -6,7 +6,7 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 
-import cn.cy.base.handler.EventHandler;
+import cn.cy.base.handler.InboundEventHandler;
 
 /**
  * 维护每一个连接相关的上下文, 一个连接
@@ -22,7 +22,7 @@ public class SocketContext {
     // 读写公用
     private Buffer buffer;
 
-    private EventHandler eventHandler;
+    private InboundEventHandler inboundEventHandler;
 
     private SocketContext() {
 
@@ -36,7 +36,7 @@ public class SocketContext {
      *
      * @return
      */
-    public static SocketContext buildSocketContext(SelectionKey selectionKey, EventHandler eventHandler,
+    public static SocketContext buildSocketContext(SelectionKey selectionKey, InboundEventHandler inboundEventHandler,
                                                    SocketChannel remoteChannel) {
         SocketContext socketContext = new SocketContext();
 
@@ -44,7 +44,7 @@ public class SocketContext {
         socketContext.socketChannel = remoteChannel;
         socketContext.selectionKey = selectionKey;
         socketContext.buffer = ByteBuffer.allocate(2048);
-        socketContext.eventHandler = eventHandler;
+        socketContext.inboundEventHandler = inboundEventHandler;
         return socketContext;
     }
 
@@ -53,7 +53,7 @@ public class SocketContext {
      */
     public void fireReadEvent() {
         // todo 线程池
-        eventHandler.onRead(this);
+        inboundEventHandler.onRead(this);
     }
 
     public Selector getSelector() {

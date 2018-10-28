@@ -21,7 +21,7 @@ import org.apache.logging.log4j.core.LoggerContext;
 import cn.cy.base.config.ServerConfig;
 import cn.cy.base.constraint.ConnectionDistributor;
 import cn.cy.base.context.SocketContext;
-import cn.cy.base.handler.EchoHandler;
+import cn.cy.base.handler.EchoHandlerInbound;
 
 /**
  * 监听请求的中心 , nio
@@ -75,6 +75,9 @@ public class Listener implements ConnectionDistributor {
      * eventLoop函数, 无限循环, 接受连接
      */
     public void eventLoop() {
+
+        logger.info("start listening!");
+
         try {
             // 开始进行selector的监听
 
@@ -114,6 +117,8 @@ public class Listener implements ConnectionDistributor {
                           https://blog.csdn.net/yangguosb/article/details/80193196
                           http://xiaoz5919.iteye.com/blog/1905177
                          */
+
+
                     }
                 }
             }
@@ -147,7 +152,7 @@ public class Listener implements ConnectionDistributor {
                 try {
                     // 注意, 注册和selector要在同一个线程里做
                     // echo Handler
-                    SocketContext socketContext = SocketContext.buildSocketContext(selectionKey, new EchoHandler(),
+                    SocketContext socketContext = SocketContext.buildSocketContext(selectionKey, new EchoHandlerInbound(),
                             remoteChannel);
 
                     /**
