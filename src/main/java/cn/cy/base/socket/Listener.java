@@ -20,7 +20,7 @@ import org.apache.logging.log4j.core.LoggerContext;
 
 import cn.cy.base.config.ServerConfig;
 import cn.cy.base.constraint.ConnectionDistributor;
-import cn.cy.base.context.SocketContext;
+import cn.cy.base.core.context.SocketContext;
 import cn.cy.base.handler.EchoHandlerInbound;
 
 /**
@@ -89,7 +89,8 @@ public class Listener implements ConnectionDistributor {
                 /*
                   显式使用iterator
                   如果使用以前的方式遍历过程中, 如果使用remove方法，会报ConcurrentModifiedException
-                  https://stackoverflow.com/questions/26494197/java-util-concurrentmodificationexception-when-removing-elements-from-a-hashmap
+                  https://stackoverflow.com/questions/26494197/java-util-concurrentmodificationexception-when
+                  -removing-elements-from-a-hashmap
                  */
                 Iterator<SelectionKey> iterator = selectionKeySet.iterator();
 
@@ -117,7 +118,6 @@ public class Listener implements ConnectionDistributor {
                           https://blog.csdn.net/yangguosb/article/details/80193196
                           http://xiaoz5919.iteye.com/blog/1905177
                          */
-
 
                     }
                 }
@@ -152,8 +152,9 @@ public class Listener implements ConnectionDistributor {
                 try {
                     // 注意, 注册和selector要在同一个线程里做
                     // echo Handler
-                    SocketContext socketContext = SocketContext.buildSocketContext(selectionKey, new EchoHandlerInbound(),
-                            remoteChannel);
+                    SocketContext socketContext =
+                            SocketContext.buildSocketContext(selectionKey, new EchoHandlerInbound(),
+                                    remoteChannel);
 
                     /**
                      * 关于事件分发

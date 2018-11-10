@@ -3,6 +3,7 @@ package cn.cy.base.socket;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.Test;
 
@@ -59,7 +60,7 @@ public class SingleClientTest extends BaseClientTest {
             }).start();
         }
 
-        countDownLatch.await();
+        countDownLatch.await(10, TimeUnit.SECONDS);
     }
 
 }

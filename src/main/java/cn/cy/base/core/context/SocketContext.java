@@ -1,17 +1,19 @@
-package cn.cy.base.context;
+package cn.cy.base.core.context;
 
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
+import java.util.ArrayDeque;
+import java.util.Queue;
 
 import cn.cy.base.handler.InboundEventHandler;
 
 /**
  * 维护每一个连接相关的上下文, 一个连接
  */
-public class SocketContext {
+public class SocketContext implements ConnectionContext<String> {
 
     private Selector selector;
 
@@ -23,6 +25,10 @@ public class SocketContext {
     private Buffer buffer;
 
     private InboundEventHandler inboundEventHandler;
+
+    private String data;
+
+    private Queue<Byte> sendQueue = new ArrayDeque<>();
 
     private SocketContext() {
 
@@ -45,6 +51,7 @@ public class SocketContext {
         socketContext.selectionKey = selectionKey;
         socketContext.buffer = ByteBuffer.allocate(2048);
         socketContext.inboundEventHandler = inboundEventHandler;
+        socketContext.sendQueue = new ArrayDeque();
         return socketContext;
     }
 
@@ -70,5 +77,27 @@ public class SocketContext {
 
     public Buffer getBuffer() {
         return buffer;
+    }
+
+    public String getData() {
+        return data;
+    }
+
+    public void setData(String data) {
+        this.data = data;
+    }
+
+    public Queue<Byte> getSendQueue() {
+        return sendQueue;
+    }
+
+    @Override
+    public SelectionKey getKey() {
+        return selectionKey;
+    }
+
+    @Override
+    public SocketChannel getChannel() {
+        return socketChannel;
     }
 }

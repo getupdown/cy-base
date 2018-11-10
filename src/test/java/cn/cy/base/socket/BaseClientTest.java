@@ -38,15 +38,15 @@ public class BaseClientTest {
             for (SelectionKey selectionKey : selector.selectedKeys()) {
                 SocketChannel remoteChannel = (SocketChannel) selectionKey.channel();
 
-                if (selectionKey.isWritable()) {
+                if (writeFunction != null && selectionKey.isWritable()) {
 
                     writeFunction.apply(remoteChannel);
 
-                } else if (selectionKey.isConnectable()) {
+                } else if (readFunction != null && selectionKey.isConnectable()) {
 
                     readFunction.apply(remoteChannel);
 
-                } else if (selectionKey.isReadable()) {
+                } else if (connectFunction != null && selectionKey.isReadable()) {
 
                     connectFunction.apply(remoteChannel);
 
