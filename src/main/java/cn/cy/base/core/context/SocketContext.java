@@ -59,8 +59,7 @@ public class SocketContext implements ConnectionContext<String> {
      * selector循环中触发读事件
      */
     public void fireReadEvent() {
-        // todo 线程池
-        inboundEventHandler.onRead(this);
+        GlobalContext.getInstance().getThreadPool().executeRead(this, inboundEventHandler);
     }
 
     public Selector getSelector() {

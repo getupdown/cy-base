@@ -22,6 +22,7 @@ public class GlobalContext {
 
     private static ThreadPool threadPool = ThreadPoolImpl.getInstance();
 
+    //可能没必要创建实例
     private static final class SingleTon {
         private static final GlobalContext INSTANCE = new GlobalContext();
     }
@@ -41,7 +42,7 @@ public class GlobalContext {
         Map<String, Object> props;
 
         try {
-            props = (Map<String, Object>) yaml
+            props = yaml
                     .load(new FileInputStream(url.getFile()));
         } catch (IOException ioE) {
             logger.error("Fail to get file {}", url.getFile());
@@ -60,4 +61,7 @@ public class GlobalContext {
         return true;
     }
 
+    public ThreadPool getThreadPool() {
+        return threadPool;
+    }
 }
