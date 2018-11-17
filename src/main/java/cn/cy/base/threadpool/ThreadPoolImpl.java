@@ -1,12 +1,16 @@
 package cn.cy.base.threadpool;
 
+import cn.cy.base.core.context.ConnectionContext;
+import cn.cy.base.handler.InboundEventHandler;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class ThreadPoolImpl implements ThreadPool {
-	private static ExecutorService pool;
+
+	private ExecutorService pool;
 
 	private static class SingleTon {
 		private static final ThreadPoolImpl INSTANCE = new ThreadPoolImpl();
@@ -22,9 +26,9 @@ public class ThreadPoolImpl implements ThreadPool {
 	@Override
 	public boolean initialize(int corePoolSize, int maximumPoolSize,
 			long keepAliveTime) {
-		pool = new ThreadPoolExecutor(corePoolSize, maximumPoolSize,
+		this.pool = new ThreadPoolExecutor(corePoolSize, maximumPoolSize,
 				keepAliveTime, TimeUnit.SECONDS,
-				new SynchronousQueue<Runnable>());
+                new SynchronousQueue<>());
 		return true;
 	}
 
@@ -33,4 +37,11 @@ public class ThreadPoolImpl implements ThreadPool {
 		pool.submit(task);
 	}
 
+	/**
+	 * 由线程池分配线程执行读操作
+	 */
+	@Override
+	public void executeRead(ConnectionContext context, InboundEventHandler eventHandler) {
+		pool.submit(() -> eventHandler.onRead(context));
+	}
 }
